@@ -1,11 +1,2 @@
-[phases.setup]
-nixPkgs = ["nodejs-20"]
-
-[phases.install]
-cmds = ["npm ci --production=false"]
-
-[phases.build]
-cmds = ["npm run build"]
-
-[start]
-cmd = "npm run start"
+# Nixpacks will automatically detect Node.js version from package.json engines field
+# No explicit configuration needed for standard Node.js apps

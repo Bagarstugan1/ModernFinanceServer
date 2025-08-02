@@ -1,0 +1,13 @@
+.build/
+.swiftpm/
+.git/
+.gitignore
+.DS_Store
+*.xcodeproj
+DerivedData/
+.env
+.env.*
+README.md
+docs/
+tests/
+*.log

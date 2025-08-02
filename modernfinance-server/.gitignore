@@ -1,72 +1,129 @@
-# Xcode
-.DS_Store
-/.build
-/Packages
-/*.xcodeproj
-xcuserdata/
-DerivedData/
-.swiftpm/config/registries.json
-.swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
-.netrc
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# Swift Package Manager
-Packages/
-Package.pins
-Package.resolved
-*.xcodeproj
+# Build output
+dist/
+build/
+*.tsbuildinfo
 
-# Vapor
-.build/
-.vapor/
+# Environment variables
 .env
-.env.*
-!.env.example
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
-# macOS
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 .DS_Store
-.AppleDouble
-.LSOverride
 
-# Icon must end with two \r
-Icon
-
-# Thumbnails
-._*
-
-# Files that might appear in the root of a volume
-.DocumentRevisions-V100
-.fseventsd
-.Spotlight-V100
-.TemporaryItems
-.Trashes
-.VolumeIcon.icns
-.com.apple.timemachine.donotpresent
-
-# Directories potentially created on remote AFP share
-.AppleDB
-.AppleDesktop
-Network Trash Folder
-Temporary Items
-.apdisk
+# Testing
+coverage/
+.nyc_output/
+*.lcov
 
 # Logs
+logs/
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
-# Database
-*.sqlite
-*.sqlite3
-db.sqlite
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Cache
+.eslintcache
+.npm
+.yarn-integrity
+.cache/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional stylelint cache
+.stylelintcache
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Misc
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variable files
+.env
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local
 
 # Redis dump
 dump.rdb
 
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
+# Mac files
+.DS_Store
+
+# Windows files
+Thumbs.db
+ehthumbs.db
+
+# Linux files
 *~
 
-# Test Coverage
-.coverage/
-*.lcov
+# Editor directories and files
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

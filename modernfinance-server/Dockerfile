@@ -1,82 +1,49 @@
-# ================================
-# Build image
-# ================================
-FROM swift:5.9-jammy as build
+# Build stage
+FROM node:20-alpine AS builder
 
-# Install OS updates and, if needed, sqlite3 dependencies
-RUN export DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true \
-    && apt-get -q update \
-    && apt-get -q dist-upgrade -y \
-    && apt-get -q install -y \
-      libsqlite3-dev \
-      libssl-dev \
-      zlib1g-dev \
-      pkg-config \
-    && rm -rf /var/lib/apt/lists/*
-
-# Set up a build area
-WORKDIR /build
-
-# First just resolve dependencies.
-# This creates a cached layer that can be reused
-# as long as your Package.swift/Package.resolved files do not change.
-COPY ./Package.* ./
-RUN swift package resolve
-
-# Copy entire repo into container
-COPY . .
-
-# Build everything, with optimizations
-RUN swift build -c release \
-    --static-swift-stdlib
-
-# Switch to the staging area
-WORKDIR /staging
-
-# Copy main executable to staging area
-RUN cp "$(swift build --package-path /build -c release --show-bin-path)/Run" ./
-
-# Copy resources bundled by SPM to staging area
-RUN find -L "$(swift build --package-path /build -c release --show-bin-path)/" -regex '.*\.resources$' -exec cp -Ra {} ./ \;
-
-# Copy any resources from the public directory and views directory if the directories exist
-# Ensure that by default, neither the directory nor any of its contents are writable.
-RUN [ -d /build/Public ] && { cp -R /build/Public ./Public && chmod -R a-w ./Public; } || true
-RUN [ -d /build/Resources ] && { cp -R /build/Resources ./Resources && chmod -R a-w ./Resources; } || true
-
-# ================================
-# Run image
-# ================================
-FROM ubuntu:22.04
-
-# Install runtime dependencies
-RUN export DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true \
-    && apt-get -q update \
-    && apt-get -q dist-upgrade -y \
-    && apt-get -q install -y \
-      ca-certificates \
-      tzdata \
-      libcurl4 \
-      libxml2 \
-      libssl3 \
-      zlib1g \
-    && rm -r /var/lib/apt/lists/*
-
-# Create a vapor user and group with /app as its home directory
-RUN useradd --user-group --create-home --system --skel /dev/null --home-dir /app vapor
-
-# Switch to the new home directory
 WORKDIR /app
 
-# Copy built executable and any staged resources from builder
-COPY --from=build --chown=vapor:vapor /staging /app
+# Copy package files
+COPY package*.json ./
+RUN npm ci
 
-# Ensure all further commands run as the vapor user
-USER vapor:vapor
+# Copy source code
+COPY . .
 
-# Let Docker bind to port 8080
+# Build TypeScript
+RUN npm run build
+
+# Production stage
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install dumb-init for proper signal handling
+RUN apk add --no-cache dumb-init
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S nodejs -u 1001
+
+# Copy package files and install production dependencies
+COPY package*.json ./
+RUN npm ci --production && npm cache clean --force
+
+# Copy built application
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/.env.example ./.env.example
+
+# Change ownership
+RUN chown -R nodejs:nodejs /app
+
+# Switch to non-root user
+USER nodejs
+
+# Expose port
 EXPOSE 8080
 
-# Start the Vapor service when the image is run, default to port 8080
-ENV PORT=8080
-CMD ["./Run", "serve", "--env", "production", "--hostname", "0.0.0.0", "--port", "8080"]
+# Use dumb-init to handle signals properly
+ENTRYPOINT ["dumb-init", "--"]
+
+# Start the application
+CMD ["node", "dist/server.js"]

@@ -9,12 +9,30 @@ export const cacheTTL = {
 
 export const cachePrefix = 'modernfinance:';
 
-const password = process.env['REDIS_PASSWORD'];
+// Parse Redis URL if provided by Railway
+const redisUrl = process.env['REDIS_URL'] || process.env['REDIS_PRIVATE_URL'];
+let redisOptions: Partial<RedisOptions> = {};
+
+if (redisUrl) {
+  // Railway provides Redis as a URL
+  const url = new URL(redisUrl);
+  redisOptions = {
+    host: url.hostname,
+    port: parseInt(url.port || '6379', 10),
+    password: url.password || undefined,
+  };
+} else {
+  // Fallback to individual env vars
+  const password = process.env['REDIS_PASSWORD'];
+  redisOptions = {
+    host: process.env['REDIS_HOST'] || 'localhost',
+    port: parseInt(process.env['REDIS_PORT'] || '6379', 10),
+    ...(password ? { password } : {}),
+  };
+}
 
 export const redisConfig: RedisOptions = {
-  host: process.env['REDIS_HOST'] || 'localhost',
-  port: parseInt(process.env['REDIS_PORT'] || '6379', 10),
-  ...(password ? { password } : {}),
+  ...redisOptions,
   db: parseInt(process.env['REDIS_DB'] || '0', 10),
   connectTimeout: 10000,
   maxRetriesPerRequest: 3,

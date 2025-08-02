@@ -1,9 +1,0 @@
-{
-  "build": {
-    "builder": "NIXPACKS",
-    "nixpacksPlan": {
-      "providers": ["node"]
-    }
-  },
-  "$schema": "https://railway.app/railway.schema.json"
-}

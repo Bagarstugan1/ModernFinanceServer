@@ -10,14 +10,19 @@ export const cacheTTL = {
 export const cachePrefix = 'modernfinance:';
 
 // Parse Redis URL if provided by Railway
-// Try multiple possible Redis URL environment variables
-const redisUrl = process.env['REDIS_PUBLIC_URL'] || process.env['REDIS_URL'] || process.env['REDISURL'];
+// Use REDIS_URL as primary (Railway's standard variable)
+const redisUrl = process.env['REDIS_URL'];
 let redisOptions: Partial<RedisOptions> = {};
 
 // Debug logging for Redis configuration
 if (process.env['NODE_ENV'] === 'production') {
   console.log('Redis URL found:', redisUrl ? 'Yes' : 'No');
-  console.log('Using Redis host:', redisUrl ? new URL(redisUrl).hostname : (process.env['REDIS_HOST'] || 'localhost'));
+  if (redisUrl) {
+    const url = new URL(redisUrl);
+    console.log('Redis URL scheme:', url.protocol);
+    console.log('Using Redis host:', url.hostname);
+    console.log('TLS enabled:', redisUrl.includes('proxy.rlwy.net') || redisUrl.startsWith('rediss://'));
+  }
 }
 
 if (redisUrl) {
@@ -73,13 +78,15 @@ if (process.env['REDIS_TLS'] === 'true' || redisUrl?.includes('proxy.rlwy.net'))
 // Create Redis client instance
 // Use the URL directly if available for better Railway compatibility
 export const redis = redisUrl 
-  ? new Redis(redisUrl + '?family=0', {
-      tls: {
-        rejectUnauthorized: false
-      },
+  ? new Redis(redisUrl, {
+      family: 0, // IPv4+IPv6 support
+      tls: redisUrl.includes('proxy.rlwy.net') || redisUrl.startsWith('rediss://') 
+        ? { rejectUnauthorized: false } 
+        : undefined,
       connectTimeout: 30000,
       lazyConnect: true,
       retryStrategy: (times: number) => Math.min(times * 50, 2000),
+      enableOfflineQueue: false,
     })
   : new Redis(redisConfig);
 
@@ -97,6 +104,14 @@ export async function connectRedis(): Promise<void> {
 // Handle Redis events
 redis.on('error', (err) => {
   logger.error('Redis error:', err);
+});
+
+redis.on('connect', () => {
+  logger.info('Redis connected successfully!');
+});
+
+redis.on('ready', () => {
+  logger.info('Redis is ready to accept commands');
 });
 
 redis.on('reconnecting', () => {

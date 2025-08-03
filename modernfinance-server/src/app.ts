@@ -12,19 +12,7 @@ const app = express();
 
 // Security middleware
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'"],
-      fontSrc: ["'self'"],
-      objectSrc: ["'none'"],
-      mediaSrc: ["'self'"],
-      frameSrc: ["'none'"],
-    },
-  },
+  contentSecurityPolicy: false, // Disable CSP for now to avoid blocking requests
   crossOriginEmbedderPolicy: false,
 }));
 
@@ -54,8 +42,13 @@ app.use(morgan('combined', {
 // Rate limiting
 app.use('/api/', createRateLimiter());
 
-// Health check endpoint
+// Health check endpoint - simple response for Railway
 app.get('/health', (_req, res) => {
+  res.status(200).send('OK');
+});
+
+// Detailed health check
+app.get('/health/details', (_req, res) => {
   res.status(200).json({
     status: 'healthy',
     timestamp: new Date().toISOString(),

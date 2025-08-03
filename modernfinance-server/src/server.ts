@@ -11,6 +11,12 @@ const httpServer = createServer(app);
 
 async function startServer() {
   try {
+    // Wait for Railway's DNS resolver to be ready
+    if (process.env.NODE_ENV === 'production') {
+      logger.info('Waiting for Railway DNS resolver...');
+      await new Promise(resolve => setTimeout(resolve, 3000));
+    }
+    
     // Connect to Redis
     await connectRedis();
     logger.info('Redis connection established');

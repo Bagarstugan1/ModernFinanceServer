@@ -10,8 +10,15 @@ export const cacheTTL = {
 export const cachePrefix = 'modernfinance:';
 
 // Parse Redis URL if provided by Railway
-const redisUrl = process.env['REDIS_URL'] || process.env['REDIS_PRIVATE_URL'];
+// Try multiple possible Redis URL environment variables
+const redisUrl = process.env['REDIS_PUBLIC_URL'] || process.env['REDIS_URL'] || process.env['REDISURL'];
 let redisOptions: Partial<RedisOptions> = {};
+
+// Debug logging for Redis configuration
+if (process.env['NODE_ENV'] === 'production') {
+  console.log('Redis URL found:', redisUrl ? 'Yes' : 'No');
+  console.log('Using Redis host:', redisUrl ? new URL(redisUrl).hostname : (process.env['REDIS_HOST'] || 'localhost'));
+}
 
 if (redisUrl) {
   // Railway provides Redis as a URL
@@ -34,6 +41,7 @@ if (redisUrl) {
 export const redisConfig: RedisOptions = {
   ...redisOptions,
   db: parseInt(process.env['REDIS_DB'] || '0', 10),
+  family: 0, // Enable dual-stack DNS (IPv4 + IPv6) for Railway
   connectTimeout: 10000,
   maxRetriesPerRequest: 3,
   enableReadyCheck: true,
@@ -53,8 +61,9 @@ export const redisConfig: RedisOptions = {
   lazyConnect: true,
 };
 
-// Add TLS configuration if REDIS_TLS is set
-if (process.env['REDIS_TLS'] === 'true') {
+// Add TLS configuration for Railway's public Redis proxy
+// Railway's public URL often requires TLS
+if (process.env['REDIS_TLS'] === 'true' || redisUrl?.includes('proxy.rlwy.net')) {
   redisConfig.tls = {
     rejectUnauthorized: false,
   };

@@ -64,7 +64,6 @@ export const redisConfig: RedisOptions = {
     return false;
   },
   enableOfflineQueue: true,
-  lazyConnect: true,
 };
 
 // Add TLS configuration for Railway's public Redis proxy

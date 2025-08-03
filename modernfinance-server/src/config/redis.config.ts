@@ -42,9 +42,10 @@ export const redisConfig: RedisOptions = {
   ...redisOptions,
   db: parseInt(process.env['REDIS_DB'] || '0', 10),
   family: 0, // Enable dual-stack DNS (IPv4 + IPv6) for Railway
-  connectTimeout: 10000,
+  connectTimeout: 30000, // Increase timeout for Railway
   maxRetriesPerRequest: 3,
   enableReadyCheck: true,
+  lazyConnect: true, // Don't connect immediately
   retryStrategy: (times: number) => {
     const delay = Math.min(times * 50, 2000);
     return delay;
@@ -70,7 +71,17 @@ if (process.env['REDIS_TLS'] === 'true' || redisUrl?.includes('proxy.rlwy.net'))
 }
 
 // Create Redis client instance
-export const redis = new Redis(redisConfig);
+// Use the URL directly if available for better Railway compatibility
+export const redis = redisUrl 
+  ? new Redis(redisUrl + '?family=0', {
+      tls: {
+        rejectUnauthorized: false
+      },
+      connectTimeout: 30000,
+      lazyConnect: true,
+      retryStrategy: (times: number) => Math.min(times * 50, 2000),
+    })
+  : new Redis(redisConfig);
 
 // Connect to Redis
 export async function connectRedis(): Promise<void> {

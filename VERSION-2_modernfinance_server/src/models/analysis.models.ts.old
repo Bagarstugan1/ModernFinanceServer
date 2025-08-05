@@ -1,0 +1,94 @@
+// Analysis models matching iOS AnalysisModels.swift
+
+export enum AgentType {
+  TECHNICAL = "technical",
+  FUNDAMENTAL = "fundamental", 
+  SENTIMENT = "sentiment",
+  RISK = "risk",
+  MACRO = "macro",
+  INDUSTRY = "industry",
+  VALUE = "value",
+  GROWTH = "growth",
+  EARNINGS = "earnings",
+  ANALYST = "analyst"
+}
+
+export enum AgentBias {
+  BEARISH = "bearish",
+  NEUTRAL = "neutral",
+  BULLISH = "bullish"
+}
+
+export interface MarketSentiment {
+  overallScore: number;
+  newsVolume: number;
+  socialMediaBuzz: number;
+  analystConsensus: string;
+  recentHeadlines: string[];
+  sentimentTrend: string;
+}
+
+export interface CompetitiveAnalysis {
+  marketPosition: string;
+  keyCompetitors: string[];
+  competitiveAdvantages: string[];
+  marketShare: number;
+  industryGrowthRate: number;
+  threats: string[];
+  opportunities: string[];
+}
+
+export interface AgentPerspective {
+  id: string;
+  agentType: AgentType;
+  agentBias: AgentBias;
+  keyPoints: string[];
+  evidenceItems: string[];
+  confidenceScore: number;
+  opposingViewpoints: string[];
+  timestamp: Date;
+  relevanceScore: number;
+  contributionCount: number;
+}
+
+export interface CachedAnalysisTemplate {
+  id: string;
+  symbol: string;
+  timestamp: Date;
+  
+  // Core company data
+  companyName: string;
+  currentPrice: number;
+  marketCap: number;
+  peRatio: number;
+  volume: number;
+  dayChange: number;
+  dayChangePercent: number;
+  
+  // Financial metrics
+  revenue: number;
+  netIncome: number;
+  eps: number;
+  debtToEquity: number;
+  freeCashFlow: number;
+  dividendYield: number;
+  
+  // Analysis components
+  marketSentiment: MarketSentiment;
+  competitiveAnalysis: CompetitiveAnalysis;
+  
+  // Agent perspectives
+  agentPerspectives: AgentPerspective[];
+  
+  // User contributions
+  userContributions: string[];
+  
+  // Summary
+  executiveSummary: string;
+  investmentThesis: string;
+  riskFactors: string[];
+  
+  // Export metadata
+  exportedFormats: string[];
+  lastExportDate?: Date;
+}

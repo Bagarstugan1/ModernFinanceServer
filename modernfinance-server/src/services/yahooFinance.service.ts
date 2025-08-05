@@ -240,7 +240,7 @@ class YahooFinanceService {
         return [];
       }
 
-      const historicalData = timestamps.map((timestamp, index) => {
+      const historicalData = timestamps.map((timestamp: number, index: number) => {
         const date = new Date(timestamp * 1000).toISOString().split('T')[0];
         return {
           date,
@@ -250,7 +250,9 @@ class YahooFinanceService {
           close: quotes.close?.[index] || 0,
           volume: quotes.volume?.[index] || 0
         };
-      }).filter(data => data.close > 0); // Filter out invalid data
+      }).filter((data): data is { date: string; open: number; high: number; low: number; close: number; volume: number } => 
+        data.close > 0 && data.date !== undefined
+      ); // Filter out invalid data
 
       return historicalData;
     } catch (error) {
@@ -276,30 +278,36 @@ class YahooFinanceService {
       
       // P/E ratio sentiment (lower is better, typically)
       const peRatio = fundamentals['P/E Ratio'];
-      if (peRatio > 0 && peRatio < 15) {
-        sentimentScore += 1;
-      } else if (peRatio > 30) {
-        sentimentScore -= 1;
+      if (peRatio !== undefined) {
+        if (peRatio > 0 && peRatio < 15) {
+          sentimentScore += 1;
+        } else if (peRatio > 30) {
+          sentimentScore -= 1;
+        }
+        factors++;
       }
-      factors++;
       
       // Revenue growth sentiment
       const revenueGrowth = fundamentals['Revenue Growth'];
-      if (revenueGrowth > 0.15) {
-        sentimentScore += 1;
-      } else if (revenueGrowth < 0) {
-        sentimentScore -= 1;
+      if (revenueGrowth !== undefined) {
+        if (revenueGrowth > 0.15) {
+          sentimentScore += 1;
+        } else if (revenueGrowth < 0) {
+          sentimentScore -= 1;
+        }
+        factors++;
       }
-      factors++;
       
       // ROE sentiment
       const roe = fundamentals['ROE'];
-      if (roe > 0.20) {
-        sentimentScore += 1;
-      } else if (roe < 0.10) {
-        sentimentScore -= 1;
+      if (roe !== undefined) {
+        if (roe > 0.20) {
+          sentimentScore += 1;
+        } else if (roe < 0.10) {
+          sentimentScore -= 1;
+        }
+        factors++;
       }
-      factors++;
       
       // Calculate average sentiment
       const avgSentiment = sentimentScore / factors;

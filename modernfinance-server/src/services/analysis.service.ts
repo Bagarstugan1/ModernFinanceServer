@@ -148,14 +148,7 @@ export class AnalysisService {
     };
   }
   
-  private extractMarketSentiment(_analysisData: any): MarketSentiment {
-    return {
-      analystRating: 4.0,
-      socialSentiment: 0.7,
-      newsVolume: 150,
-      sentimentTrend: 'positive'
-    };
-  }
+  // Removed unused method - extractMarketSentiment
   
   private getTTLForCacheLevel(level: CacheLevel): number {
     switch (level) {

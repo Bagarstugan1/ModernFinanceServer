@@ -467,7 +467,7 @@ Challenge assumptions and highlight concerns.`;
     }
   }
   
-  async classifyContribution(text: string, context?: any): Promise<{
+  async classifyContribution(text: string, _context?: any): Promise<{
     type: string;
     confidence: number;
     relevantAgents: string[];

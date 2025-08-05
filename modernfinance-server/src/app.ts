@@ -16,14 +16,24 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 
-// CORS configuration for iOS app
-app.use(cors({
-  origin: config.cors.origins,
-  credentials: config.cors.credentials,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
-  exposedHeaders: ['X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset'],
-}));
+// CORS configuration - allow all origins for testing (will secure later)
+const corsOptions = config.cors.origins.includes('*') 
+  ? {
+      origin: true, // Allow all origins when * is specified
+      credentials: config.cors.credentials,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
+      exposedHeaders: ['X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset', 'X-Cache-Hit', 'X-Cache-Hit-Rate'],
+    }
+  : {
+      origin: config.cors.origins,
+      credentials: config.cors.credentials,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
+      exposedHeaders: ['X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset', 'X-Cache-Hit', 'X-Cache-Hit-Rate'],
+    };
+
+app.use(cors(corsOptions));
 
 // Compression middleware
 app.use(compression());

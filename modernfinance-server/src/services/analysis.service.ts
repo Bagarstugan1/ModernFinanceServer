@@ -15,14 +15,14 @@ export enum CacheLevel {
 
 export class AnalysisService {
   async generateBaseTemplate(symbol: string): Promise<CachedAnalysisTemplate> {
-    // Fetch fundamentals
+    // Fetch real market data
     const fundamentals = await marketService.getFundamentals(symbol);
     const sentiment = await marketService.getSentiment(symbol);
     
     // Generate competitive analysis
     const competitivePosition = this.generateCompetitiveAnalysis(symbol, fundamentals);
     
-    // Generate base agent perspectives
+    // Generate real AI agent perspectives
     const baseAgentPerspectives = await agentService.generateBasePerspectives(
       symbol, 
       fundamentals, 
@@ -42,68 +42,86 @@ export class AnalysisService {
     return template;
   }
   
-  async cacheAnalysis(symbol: string, analysisData: any, cacheLevel: CacheLevel): Promise<void> {
-    const ttl = this.getTTLForCacheLevel(cacheLevel);
+  async cacheTemplate(symbol: string, template: CachedAnalysisTemplate): Promise<void> {
+    const ttl = 3600; // 1 hour for templates
     
-    switch (cacheLevel) {
-      case CacheLevel.BASE:
-        // Cache only deterministic data
-        const baseData = {
-          fundamentals: analysisData.fundamentalMetrics,
-          competitivePosition: analysisData.swarmDCF?.competitivePosition,
-          marketSentiment: this.extractMarketSentiment(analysisData)
-        };
-        await cacheService.set(
-          cacheService.generateKey('template', symbol),
-          baseData,
-          { ttl }
-        );
-        break;
-        
-      case CacheLevel.PARTIAL:
-        // Cache base + some agent perspectives
-        const partialData = {
-          ...analysisData,
-          agentPerspectives: analysisData.agentPerspectives.filter((a: AgentPerspective) => 
-            ['fundamental', 'technical', 'risk'].includes(a.agentType)
-          )
-        };
-        await cacheService.set(
-          cacheService.generateKey('partial', symbol),
-          partialData,
-          { ttl }
-        );
-        break;
-        
-      case CacheLevel.FULL:
-        // Cache complete analysis (not recommended)
-        await cacheService.set(
-          cacheService.generateKey('full', symbol),
-          analysisData,
-          { ttl }
-        );
-        break;
+    // Cache the complete template
+    await cacheService.set(
+      cacheService.generateKey('template', symbol),
+      template,
+      { ttl, tags: [`symbol:${symbol}`, 'template'] }
+    );
+    
+    // Also cache agent perspectives separately for quick access
+    if (template.baseAgentPerspectives && template.baseAgentPerspectives.length > 0) {
+      await cacheService.set(
+        cacheService.generateKey('perspectives', symbol),
+        template.baseAgentPerspectives,
+        { ttl: 1800, tags: [`symbol:${symbol}`, 'perspectives'] } // 30 min for perspectives
+      );
     }
   }
   
-  async getCachedAnalysis(symbol: string): Promise<any | null> {
-    // Try full cache first
-    const fullCache = await cacheService.get(
-      cacheService.generateKey('full', symbol)
-    );
-    if (fullCache) return fullCache;
+  async cacheCompleteAnalysis(symbol: string, analysisData: any, cacheLevel: CacheLevel): Promise<void> {
+    const ttl = this.getTTLForCacheLevel(cacheLevel);
     
-    // Try partial cache
-    const partialCache = await cacheService.get(
-      cacheService.generateKey('partial', symbol)
-    );
-    if (partialCache) return partialCache;
+    // Extract agent perspectives from the analysis data
+    const agentPerspectives = analysisData.agentPerspectives || [];
     
-    // Try base template
-    const templateCache = await cacheService.get(
+    // Cache the complete analysis
+    await cacheService.set(
+      cacheService.generateKey('analysis', symbol, cacheLevel),
+      analysisData,
+      { ttl, tags: [`symbol:${symbol}`, `level:${cacheLevel}`] }
+    );
+    
+    // Always cache agent perspectives separately
+    if (agentPerspectives.length > 0) {
+      await cacheService.set(
+        cacheService.generateKey('perspectives', symbol),
+        agentPerspectives,
+        { ttl: Math.min(ttl, 1800), tags: [`symbol:${symbol}`, 'perspectives'] }
+      );
+    }
+  }
+  
+  async getCachedTemplate(symbol: string): Promise<CachedAnalysisTemplate | null> {
+    return await cacheService.get(
       cacheService.generateKey('template', symbol)
     );
-    return templateCache;
+  }
+  
+  async getCachedAnalysis(symbol: string): Promise<any | null> {
+    // Try different cache levels
+    for (const level of [CacheLevel.FULL, CacheLevel.PARTIAL, CacheLevel.BASE]) {
+      const cached = await cacheService.get(
+        cacheService.generateKey('analysis', symbol, level)
+      );
+      if (cached) return cached;
+    }
+    
+    // Fallback to template
+    return this.getCachedTemplate(symbol);
+  }
+  
+  async getCachedAgentPerspectives(symbol: string): Promise<AgentPerspective[]> {
+    // Try to get cached perspectives
+    const cached = await cacheService.get<AgentPerspective[]>(
+      cacheService.generateKey('perspectives', symbol)
+    );
+    
+    if (cached) {
+      return cached;
+    }
+    
+    // Try to extract from cached template
+    const template = await this.getCachedTemplate(symbol);
+    if (template && template.baseAgentPerspectives) {
+      return template.baseAgentPerspectives;
+    }
+    
+    // Return empty array if nothing cached
+    return [];
   }
   
   private generateCompetitiveAnalysis(_symbol: string, fundamentals: Record<string, number>): CompetitiveAnalysis {

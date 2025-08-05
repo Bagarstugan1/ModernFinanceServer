@@ -4,16 +4,65 @@ import {
   AgentBias, 
   MarketSentiment 
 } from '../models/server.models';
+import { llmService } from './llm.service';
+import { logger } from '../utils/logger';
 
 class AgentService {
   async generateBasePerspectives(
-    _symbol: string, 
+    symbol: string, 
     fundamentals: Record<string, number>,
     sentiment: MarketSentiment
   ): Promise<AgentPerspective[]> {
-    const perspectives: AgentPerspective[] = [];
+    logger.info(`Generating AI perspectives for ${symbol}`);
     
-    // Generate perspectives for each agent type
+    // Build financial context for LLM
+    const context = {
+      symbol,
+      currentPrice: fundamentals['Price'] || 100,
+      marketCap: fundamentals['Market Cap'] || 1e9,
+      peRatio: fundamentals['P/E Ratio'] || 20,
+      revenueGrowth: fundamentals['Revenue Growth'] || 0.1,
+      profitMargin: fundamentals['Net Margin'] || 0.1,
+      debtToEquity: fundamentals['Debt to Equity'] || 0.5,
+      roe: fundamentals['ROE'] || 0.15,
+      beta: fundamentals['Beta'] || 1.0,
+      fundamentals
+    };
+    
+    // Check if we have LLM service available
+    const hasLLM = process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.GOOGLE_API_KEY;
+    
+    if (hasLLM) {
+      try {
+        // Generate perspectives in parallel using real LLM
+        const perspectivePromises = [
+          AgentType.fundamental,
+          AgentType.technical,
+          AgentType.risk,
+          AgentType.optimist,
+          AgentType.skeptical
+        ].map(agentType => 
+          llmService.generateAgentPerspective(agentType, context)
+            .catch(error => {
+              logger.error(`Failed to generate ${agentType} perspective:`, error);
+              // Fallback to intelligent mock for this specific agent
+              return this.generateMockPerspective(agentType, fundamentals, sentiment);
+            })
+        );
+        
+        const perspectives = await Promise.all(perspectivePromises);
+        logger.info(`Successfully generated ${perspectives.length} AI perspectives`);
+        return perspectives;
+        
+      } catch (error) {
+        logger.error('Failed to generate AI perspectives, using fallback:', error);
+      }
+    } else {
+      logger.warn('No LLM API keys configured, using intelligent mock perspectives');
+    }
+    
+    // Fallback to intelligent mock perspectives if LLM fails or is not configured
+    const perspectives: AgentPerspective[] = [];
     perspectives.push(this.generateFundamentalPerspective(fundamentals));
     perspectives.push(this.generateTechnicalPerspective(fundamentals));
     perspectives.push(this.generateRiskPerspective(fundamentals, sentiment));
@@ -21,6 +70,27 @@ class AgentService {
     perspectives.push(this.generateSkepticalPerspective(fundamentals, sentiment));
     
     return perspectives;
+  }
+  
+  private generateMockPerspective(
+    agentType: AgentType,
+    fundamentals: Record<string, number>,
+    sentiment: MarketSentiment
+  ): AgentPerspective {
+    switch (agentType) {
+      case AgentType.fundamental:
+        return this.generateFundamentalPerspective(fundamentals);
+      case AgentType.technical:
+        return this.generateTechnicalPerspective(fundamentals);
+      case AgentType.risk:
+        return this.generateRiskPerspective(fundamentals, sentiment);
+      case AgentType.optimist:
+        return this.generateOptimistPerspective(fundamentals, sentiment);
+      case AgentType.skeptical:
+        return this.generateSkepticalPerspective(fundamentals, sentiment);
+      default:
+        return this.generateFundamentalPerspective(fundamentals);
+    }
   }
   
   private generateFundamentalPerspective(fundamentals: Record<string, number>): AgentPerspective {

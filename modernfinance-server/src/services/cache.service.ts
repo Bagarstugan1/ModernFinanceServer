@@ -35,7 +35,25 @@ class CacheService {
 
   private async connect(): Promise<void> {
     try {
-      this.client = new Redis(redisConfig);
+      // Try to use REDIS_URL first (Railway standard)
+      const redisUrl = process.env.REDIS_URL;
+      
+      if (redisUrl) {
+        logger.info('Connecting to Redis using REDIS_URL');
+        this.client = new Redis(redisUrl, {
+          family: 0, // IPv4+IPv6 support for Railway
+          tls: redisUrl.includes('proxy.rlwy.net') || redisUrl.startsWith('rediss://') 
+            ? { rejectUnauthorized: false } 
+            : undefined,
+          connectTimeout: 30000,
+          lazyConnect: true,
+          retryStrategy: (times: number) => Math.min(times * 50, 2000),
+          enableOfflineQueue: true,
+        });
+      } else {
+        logger.info('Connecting to Redis using config');
+        this.client = new Redis(redisConfig);
+      }
 
       this.client.on('connect', () => {
         logger.info('Redis client connecting...');
@@ -47,8 +65,9 @@ class CacheService {
       });
 
       this.client.on('error', (error) => {
-        logger.error('Redis client error:', error);
+        logger.warn('Redis client error (non-fatal):', error.message);
         this.stats.errors++;
+        // Don't set isConnected to false here - let Redis handle reconnection
       });
 
       this.client.on('close', () => {
@@ -63,9 +82,11 @@ class CacheService {
       // Connect to Redis
       await this.client.connect();
     } catch (error) {
-      logger.error('Failed to connect to Redis:', error);
+      logger.warn('Redis not available - running without cache:', error);
       this.stats.errors++;
       // Continue without cache if Redis is not available
+      this.client = null;
+      this.isConnected = false;
     }
   }
 
@@ -119,26 +140,38 @@ class CacheService {
   /**
    * Set value in cache with optional TTL and tags
    */
-  public async set<T>(key: string, value: T, options: CacheOptions = {}): Promise<boolean> {
+  public async set<T>(key: string, value: T, ttl?: number | CacheOptions): Promise<boolean> {
     if (!this.isConnected || !this.client) {
       return false;
     }
 
     try {
-      const ttl = options.ttl || cacheTTL.default;
+      // Handle both number (for backward compatibility) and options object
+      let actualTTL: number;
+      let tags: string[] | undefined;
+      
+      if (typeof ttl === 'number') {
+        actualTTL = ttl;
+      } else if (typeof ttl === 'object') {
+        actualTTL = ttl.ttl || cacheTTL.default;
+        tags = ttl.tags;
+      } else {
+        actualTTL = cacheTTL.default;
+      }
+      
       const serialized = JSON.stringify(value);
 
       // Set the main key-value pair
-      await this.client.setex(key, ttl, serialized);
+      await this.client.setex(key, actualTTL, serialized);
 
       // Handle tags for invalidation
-      if (options.tags && options.tags.length > 0) {
+      if (tags && tags.length > 0) {
         const pipeline = this.client.pipeline();
         
-        for (const tag of options.tags) {
+        for (const tag of tags) {
           const tagKey = `tag:${tag}`;
           pipeline.sadd(tagKey, key);
-          pipeline.expire(tagKey, ttl);
+          pipeline.expire(tagKey, actualTTL);
         }
         
         await pipeline.exec();

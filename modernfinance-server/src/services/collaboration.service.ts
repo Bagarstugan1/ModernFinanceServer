@@ -6,6 +6,7 @@ import {
 } from '../models/collaboration.models';
 import { AgentType } from '../models/server.models';
 import { logger } from '../utils/logger';
+import { llmService } from './llm.service';
 
 export class CollaborationService {
   /**
@@ -13,17 +14,50 @@ export class CollaborationService {
    */
   async classifyContribution(
     text: string, 
-    _symbol?: string, 
-    _context?: any
+    symbol?: string, 
+    context?: any
   ): Promise<ContributionClassification> {
-    const classification = this.performKeywordMatching(text);
-    const relevantAgents = this.getSuggestedAgents(classification.type);
+    let classification: { type: ContributionType; confidence: number };
+    let relevantAgents: string[];
     
-    logger.info('Classified contribution', { 
-      type: classification.type, 
-      confidence: classification.confidence,
-      relevantAgents 
-    });
+    // Try LLM classification first if available
+    const hasLLM = process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.GOOGLE_API_KEY;
+    
+    if (hasLLM) {
+      try {
+        const llmResult = await llmService.classifyContribution(text, { symbol, ...context });
+        
+        // Map the string type to enum
+        const typeMap: Record<string, ContributionType> = {
+          'INSIGHT': ContributionType.INSIGHT,
+          'QUESTION': ContributionType.QUESTION,
+          'CORRECTION': ContributionType.CORRECTION,
+          'COUNTER_ARGUMENT': ContributionType.COUNTER_ARGUMENT,
+          'ADDITIONAL_CONTEXT': ContributionType.ADDITIONAL_CONTEXT
+        };
+        
+        classification = {
+          type: typeMap[llmResult.type] || ContributionType.INSIGHT,
+          confidence: llmResult.confidence
+        };
+        relevantAgents = llmResult.relevantAgents;
+        
+        logger.info('AI classified contribution', { 
+          type: classification.type, 
+          confidence: classification.confidence,
+          relevantAgents 
+        });
+      } catch (error) {
+        logger.warn('LLM classification failed, using keyword matching:', error);
+        // Fallback to keyword matching
+        classification = this.performKeywordMatching(text);
+        relevantAgents = this.getSuggestedAgents(classification.type);
+      }
+    } else {
+      // No LLM available, use keyword matching
+      classification = this.performKeywordMatching(text);
+      relevantAgents = this.getSuggestedAgents(classification.type);
+    }
     
     return {
       type: classification.type,

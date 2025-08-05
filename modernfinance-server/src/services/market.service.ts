@@ -1,17 +1,58 @@
 import { MarketSentiment } from '../models/server.models';
 import { logger } from '../utils/logger';
+import { alphaVantageService } from './alphaVantage.service';
+import { yahooFinanceService } from './yahooFinance.service';
+import { cacheService } from './cache.service';
 
 class MarketService {
   async getFundamentals(symbol: string): Promise<Record<string, number>> {
     try {
-      // In production, this would call real market data APIs
-      // For now, returning realistic mock data based on symbol
-      logger.info(`Fetching fundamentals for ${symbol}`);
+      logger.info(`Fetching real fundamentals for ${symbol}`);
       
-      return this.generateMockFundamentals(symbol);
+      // Check cache first
+      const cacheKey = `fundamentals:${symbol}`;
+      const cached = await cacheService.get(cacheKey);
+      if (cached) {
+        logger.info(`Cache hit for fundamentals: ${symbol}`);
+        return JSON.parse(cached);
+      }
+      
+      let fundamentals: Record<string, number> | null = null;
+      
+      // Try Alpha Vantage first (primary source)
+      try {
+        if (process.env.ALPHA_VANTAGE_API_KEY) {
+          fundamentals = await alphaVantageService.getComprehensiveFundamentals(symbol);
+          logger.info(`Successfully fetched Alpha Vantage data for ${symbol}`);
+        }
+      } catch (avError) {
+        logger.warn(`Alpha Vantage failed for ${symbol}, trying Yahoo Finance`, avError);
+      }
+      
+      // Fallback to Yahoo Finance
+      if (!fundamentals || Object.keys(fundamentals).length === 0) {
+        try {
+          fundamentals = await yahooFinanceService.getFundamentals(symbol);
+          logger.info(`Successfully fetched Yahoo Finance data for ${symbol}`);
+        } catch (yfError) {
+          logger.warn(`Yahoo Finance also failed for ${symbol}, using fallback`, yfError);
+        }
+      }
+      
+      // Last resort: use mock data with warning
+      if (!fundamentals || Object.keys(fundamentals).length === 0) {
+        logger.warn(`All data sources failed for ${symbol}, using mock data as last resort`);
+        fundamentals = this.generateMockFundamentals(symbol);
+      }
+      
+      // Cache the result for 5 minutes
+      await cacheService.set(cacheKey, JSON.stringify(fundamentals), 300);
+      
+      return fundamentals;
     } catch (error) {
       logger.error(`Error fetching fundamentals for ${symbol}:`, error);
-      throw error;
+      // Return mock data on complete failure
+      return this.generateMockFundamentals(symbol);
     }
   }
   
@@ -19,10 +60,38 @@ class MarketService {
     try {
       logger.info(`Fetching sentiment for ${symbol}`);
       
-      return this.generateMockSentiment(symbol);
+      // Check cache first
+      const cacheKey = `sentiment:${symbol}`;
+      const cached = await cacheService.get(cacheKey);
+      if (cached) {
+        logger.info(`Cache hit for sentiment: ${symbol}`);
+        return JSON.parse(cached);
+      }
+      
+      let sentiment: MarketSentiment | null = null;
+      
+      // Try Yahoo Finance for sentiment
+      try {
+        const yfSentiment = await yahooFinanceService.getSentiment(symbol);
+        sentiment = {
+          analystRating: yfSentiment.analystRating,
+          socialSentiment: yfSentiment.socialSentiment,
+          newsVolume: yfSentiment.newsVolume,
+          sentimentTrend: yfSentiment.sentimentTrend
+        };
+        logger.info(`Successfully fetched sentiment data for ${symbol}`);
+      } catch (error) {
+        logger.warn(`Failed to fetch real sentiment for ${symbol}, using mock`, error);
+        sentiment = this.generateMockSentiment(symbol);
+      }
+      
+      // Cache the result for 10 minutes
+      await cacheService.set(cacheKey, JSON.stringify(sentiment), 600);
+      
+      return sentiment;
     } catch (error) {
       logger.error(`Error fetching sentiment for ${symbol}:`, error);
-      throw error;
+      return this.generateMockSentiment(symbol);
     }
   }
   

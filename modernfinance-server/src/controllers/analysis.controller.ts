@@ -12,21 +12,22 @@ export class AnalysisController {
       }
 
       // Check cache first
-      const cached = await analysisService.getCachedAnalysis(symbol);
+      const cached = await analysisService.getCachedTemplate(symbol);
       if (cached) {
         res.set('X-Cache-Hit', 'true');
         res.set('Cache-Control', 'public, max-age=3600');
         return res.json(cached);
       }
 
-      // Generate new template
+      // Generate new template with real data and AI perspectives
       const template = await analysisService.generateBaseTemplate(symbol);
       
-      // Cache the template
-      await analysisService.cacheAnalysis(symbol, template, CacheLevel.BASE);
+      // Cache the complete template including agent perspectives
+      await analysisService.cacheTemplate(symbol, template);
 
       res.set('X-Cache-Hit', 'false');
       res.set('Cache-Control', 'public, max-age=3600');
+      // Wrap template in expected structure for iOS client compatibility
       res.json({
         symbol,
         cacheLevel: 1,
@@ -44,27 +45,24 @@ export class AnalysisController {
 
   async cacheAnalysisData(req: Request, res: Response) {
     try {
-      const { symbol, cacheLevel, timestamp, baseTemplate, agentPerspectives } = req.body;
+      const { symbol, analysisData, cacheLevel } = req.body;
       
-      if (!symbol || cacheLevel === undefined) {
-        return res.status(400).json({ error: 'Symbol and cacheLevel are required' });
+      if (!symbol || !analysisData) {
+        return res.status(400).json({ error: 'Symbol and analysisData are required' });
       }
 
-      if (cacheLevel < 0 || cacheLevel > 3) {
-        return res.status(400).json({ error: 'Invalid cache level. Must be between 0 and 3' });
-      }
+      // Determine cache level from request or data
+      const level = cacheLevel || (analysisData.cacheLevel === 'full' ? CacheLevel.FULL :
+                                   analysisData.cacheLevel === 'partial' ? CacheLevel.PARTIAL :
+                                   CacheLevel.BASE);
 
-      await analysisService.cacheAnalysis(symbol, { 
-        baseTemplate, 
-        agentPerspectives,
-        timestamp: timestamp || new Date().toISOString(),
-        cacheLevel
-      }, CacheLevel.PARTIAL);
+      // Cache the complete analysis data including agent perspectives
+      await analysisService.cacheCompleteAnalysis(symbol, analysisData, level);
       
       res.json({ 
         success: true, 
         message: 'Analysis cached successfully',
-        cacheLevel
+        cacheLevel: level
       });
     } catch (error) {
       logger.error('Error caching analysis data:', error);
@@ -89,10 +87,9 @@ export class AnalysisController {
         return res.status(404).json({ error: 'No cached analysis found for symbol' });
       }
 
-      // Set appropriate cache headers based on cache level
-      const maxAge = cached.cacheLevel === 3 ? 7200 : cached.cacheLevel === 2 ? 3600 : 1800;
-      res.set('Cache-Control', `public, max-age=${maxAge}`);
-      res.set('X-Cache-Level', cached.cacheLevel.toString());
+      // Set appropriate cache headers
+      res.set('Cache-Control', 'public, max-age=3600');
+      res.set('X-Cache-Hit', 'true');
       
       res.json(cached);
     } catch (error) {
@@ -101,6 +98,32 @@ export class AnalysisController {
         error: 'Failed to retrieve cached analysis',
         message: error instanceof Error ? error.message : 'Unknown error'
       });
+    }
+  }
+
+  async getCachedAgentPerspectives(req: Request, res: Response) {
+    try {
+      const { symbol } = req.params;
+      
+      if (!symbol) {
+        return res.status(400).json({ error: 'Symbol is required' });
+      }
+
+      const perspectives = await analysisService.getCachedAgentPerspectives(symbol);
+      
+      if (!perspectives || perspectives.length === 0) {
+        // Return empty array instead of 404 to match client expectations
+        res.set('X-Cache-Hit', 'false');
+        return res.json([]);
+      }
+
+      res.set('X-Cache-Hit', 'true');
+      res.set('Cache-Control', 'public, max-age=1800');
+      res.json(perspectives);
+    } catch (error) {
+      logger.error('Error getting cached agent perspectives:', error);
+      // Return empty array on error to match client expectations
+      res.json([]);
     }
   }
 }

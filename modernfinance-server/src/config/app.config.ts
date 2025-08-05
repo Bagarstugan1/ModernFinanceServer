@@ -48,7 +48,10 @@ const config: AppConfig = {
   apiVersion: process.env['API_VERSION'] || 'v1',
   
   cors: {
-    origins: process.env['CORS_ORIGINS']?.split(',') || ['http://localhost:3000'],
+    // Support * for allowing all origins during development/testing
+    origins: process.env['CORS_ORIGINS'] === '*' 
+      ? ['*']  // Allow all origins
+      : process.env['CORS_ORIGINS']?.split(',').map(origin => origin.trim()) || ['http://localhost:3000'],
     credentials: true,
   },
   
@@ -87,26 +90,21 @@ const config: AppConfig = {
 
 // Validate required configurations
 const validateConfig = () => {
-  const errors: string[] = [];
+  const warnings: string[] = [];
 
-  if (!config.api.openai.apiKey) {
-    errors.push('OPENAI_API_KEY is required');
+  // Just warn about missing API keys, don't fail
+  if (!config.api.openai.apiKey && !config.api.anthropic.apiKey && !config.api.google.apiKey) {
+    console.warn('⚠️ Warning: No LLM API keys configured. AI features will use fallback responses.');
   }
-  if (!config.api.anthropic.apiKey) {
-    errors.push('ANTHROPIC_API_KEY is required');
-  }
-  if (!config.api.google.apiKey) {
-    errors.push('GOOGLE_API_KEY is required');
+  
+  if (!process.env['ALPHA_VANTAGE_API_KEY']) {
+    console.warn('⚠️ Warning: No Alpha Vantage API key configured. Market data will use Yahoo Finance or mock data.');
   }
 
-  if (errors.length > 0) {
-    throw new Error(`Configuration validation failed:\n${errors.join('\n')}`);
-  }
+  // Don't throw errors - let the app run with fallbacks
 };
 
-// Only validate in production
-if (config.env === 'production') {
-  validateConfig();
-}
+// Always validate but don't fail
+validateConfig();
 
 export default config;

@@ -11,10 +11,10 @@ class MarketService {
       
       // Check cache first
       const cacheKey = `fundamentals:${symbol}`;
-      const cached = await cacheService.get(cacheKey);
+      const cached = await cacheService.get<Record<string, number>>(cacheKey);
       if (cached) {
         logger.info(`Cache hit for fundamentals: ${symbol}`);
-        return JSON.parse(cached);
+        return cached;
       }
       
       let fundamentals: Record<string, number> | null = null;
@@ -46,7 +46,7 @@ class MarketService {
       }
       
       // Cache the result for 5 minutes
-      await cacheService.set(cacheKey, JSON.stringify(fundamentals), 300);
+      await cacheService.set(cacheKey, fundamentals, 300);
       
       return fundamentals;
     } catch (error) {
@@ -62,10 +62,10 @@ class MarketService {
       
       // Check cache first
       const cacheKey = `sentiment:${symbol}`;
-      const cached = await cacheService.get(cacheKey);
+      const cached = await cacheService.get<MarketSentiment>(cacheKey);
       if (cached) {
         logger.info(`Cache hit for sentiment: ${symbol}`);
-        return JSON.parse(cached);
+        return cached;
       }
       
       let sentiment: MarketSentiment | null = null;
@@ -86,7 +86,7 @@ class MarketService {
       }
       
       // Cache the result for 10 minutes
-      await cacheService.set(cacheKey, JSON.stringify(sentiment), 600);
+      await cacheService.set(cacheKey, sentiment, 600);
       
       return sentiment;
     } catch (error) {

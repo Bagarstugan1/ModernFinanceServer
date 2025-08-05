@@ -148,7 +148,7 @@ export class AnalysisService {
     };
   }
   
-  private extractMarketSentiment(_analysisData: any) {
+  private extractMarketSentiment(_analysisData: any): MarketSentiment {
     return {
       analystRating: 4.0,
       socialSentiment: 0.7,

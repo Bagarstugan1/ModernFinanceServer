@@ -39,7 +39,7 @@ module.exports = {
     '^@routes/(.*)$': '<rootDir>/src/routes/$1',
     '^@utils/(.*)$': '<rootDir>/src/utils/$1'
   },
-  setupFilesAfterEnv: ['<rootDir>/Tests/setup.ts'],
+  // setupFilesAfterEnv: ['<rootDir>/Tests/setup.ts'],
   testTimeout: 10000,
   verbose: true,
   forceExit: true,

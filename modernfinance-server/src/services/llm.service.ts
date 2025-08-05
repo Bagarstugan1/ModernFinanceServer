@@ -2,12 +2,6 @@ import axios, { AxiosInstance } from 'axios';
 import { logger } from '../utils/logger';
 import { AgentType, AgentBias, AgentPerspective } from '../models/server.models';
 
-// LLM Provider Types
-enum LLMProvider {
-  OPENAI = 'openai',
-  ANTHROPIC = 'anthropic',
-  GOOGLE = 'google'
-}
 
 // Financial context for analysis
 interface FinancialContext {
@@ -428,7 +422,7 @@ Challenge assumptions and highlight concerns.`;
     };
   }
   
-  private getGenericPoint(agentType: AgentType, score: number): string {
+  private getGenericPoint(_agentType: AgentType, score: number): string {
     const bullishPoints = [
       'Market position remains strong with competitive advantages',
       'Management execution has been consistent',
@@ -454,11 +448,11 @@ Challenge assumptions and highlight concerns.`;
     ];
     
     if (score >= 7) {
-      return bullishPoints[Math.floor(Math.random() * bullishPoints.length)];
+      return bullishPoints[Math.floor(Math.random() * bullishPoints.length)] || 'Positive outlook based on fundamentals';
     } else if (score <= 3) {
-      return bearishPoints[Math.floor(Math.random() * bearishPoints.length)];
+      return bearishPoints[Math.floor(Math.random() * bearishPoints.length)] || 'Concerns about current market conditions';
     } else {
-      return neutralPoints[Math.floor(Math.random() * neutralPoints.length)];
+      return neutralPoints[Math.floor(Math.random() * neutralPoints.length)] || 'Mixed signals require careful monitoring';
     }
   }
   

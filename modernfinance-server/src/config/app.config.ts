@@ -90,7 +90,6 @@ const config: AppConfig = {
 
 // Validate required configurations
 const validateConfig = () => {
-  const warnings: string[] = [];
 
   // Just warn about missing API keys, don't fail
   if (!config.api.openai.apiKey && !config.api.anthropic.apiKey && !config.api.google.apiKey) {

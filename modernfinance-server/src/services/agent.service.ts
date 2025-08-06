@@ -44,7 +44,7 @@ class AgentService {
         ].map(agentType => 
           llmService.generateAgentPerspective(agentType, context)
             .catch(error => {
-              logger.error(`Failed to generate ${agentType} perspective:`, error);
+              logger.error(`Failed to generate ${agentType} perspective: ${error instanceof Error ? error.message : 'Unknown error'}`);
               // Fallback to intelligent mock for this specific agent
               return this.generateMockPerspective(agentType, fundamentals, sentiment);
             })

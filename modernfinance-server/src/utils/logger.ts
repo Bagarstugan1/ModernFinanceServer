@@ -3,12 +3,40 @@ import path from 'path';
 
 const { combine, timestamp, printf, colorize, errors } = winston.format;
 
+// Safe stringify function to handle circular references
+const safeStringify = (obj: any): string => {
+  const seen = new WeakSet();
+  return JSON.stringify(obj, (key, value) => {
+    if (typeof value === 'object' && value !== null) {
+      // Handle circular references
+      if (seen.has(value)) {
+        return '[Circular]';
+      }
+      seen.add(value);
+      
+      // Don't log sensitive objects
+      if (value.constructor && (
+        value.constructor.name === 'TLSSocket' ||
+        value.constructor.name === 'HTTPParser' ||
+        value.constructor.name === 'Socket'
+      )) {
+        return `[${value.constructor.name}]`;
+      }
+    }
+    return value;
+  });
+};
+
 // Custom log format
 const logFormat = printf(({ level, message, timestamp, stack, ...metadata }) => {
   let log = `${timestamp} [${level}]: ${message}`;
   
   if (Object.keys(metadata).length > 0) {
-    log += ` ${JSON.stringify(metadata)}`;
+    try {
+      log += ` ${safeStringify(metadata)}`;
+    } catch (e) {
+      log += ` [Error stringifying metadata]`;
+    }
   }
   
   if (stack) {
